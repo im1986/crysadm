@@ -1,14 +1,13 @@
-# Html － 我的矿机
 __author__ = 'powergx'
 from flask import request, Response, session, render_template, url_for, redirect
 from crysadm import app, r_session
 from auth import requires_admin, requires_auth
 import json
-from urllib.parse import urlparse, parse_qs, unquote
-import re
+from urllib.parse import urlparse, parse_qs
 import time
 import threading
-from api import ubus_cd, collect, exec_draw_cash, api_sys_getEntry, api_steal_search, api_steal_collect, api_steal_summary, api_getaward
+
+from api import *
 
 # 加载矿机主页面
 @app.route('/excavators')
@@ -38,14 +37,15 @@ def excavators():
             account_info['data'] = json.loads(account_data_value.decode("utf-8"))
         accounts.append(account_info)
 
-    show_drawcash = not (r_session.get('can_drawcash') is None or
-                         r_session.get('can_drawcash').decode('utf-8') == '0')
+    show_drawcash = r_session.exists('can_drawcash')
 
     return render_template('excavators.html', err_msg=err_msg, info_msg=info_msg, accounts=accounts,
                            show_drawcash=show_drawcash)
 
 # 正则过滤 + URL转码
 def regular_html(info):
+    import re
+    from urllib.parse import unquote
     regular = re.compile('<[^>]+>')
     url = unquote(info)
     return regular.sub("", url)
@@ -175,10 +175,10 @@ def check_searcht(cookies):
         steal_info = api_steal_search(cookies)
         if steal_info.get('r') != 0:
             return steal_info
-        r = api_steal_collect(cookies=cookies, searcht_id=steal_info.get('sid'))
+        r = api_steal_collect(cookies, steal_info.get('sid'))
         if r.get('r') != 0:
             return dict(r='-1', rd='Forbidden')
-        api_steal_summary(cookies=cookies, searcht_id=steal_info.get('sid'))
+        api_steal_summary(cookies, steal_info.get('sid'))
         return r
     return dict(r='-1', rd='体力值为零')
 

@@ -53,8 +53,7 @@ def dashboard_data():
     user = session.get('user_info')
     username = user.get('username')
 
-    str_today = datetime.now().strftime('%Y-%m-%d')
-    key = 'user_data:%s:%s' % (username, str_today)
+    key = 'user_data:%s:%s' % (username, datetime.now().strftime('%Y-%m-%d'))
 
     b_data = r_session.get(key)
     if b_data is None:
@@ -97,31 +96,33 @@ def dashboard_speed_share():
     user = session.get('user_info')
     username = user.get('username')
 
-    accounts_key = 'accounts:%s' % username
-
     drilldown_data = []
-    for b_acct in r_session.mget(*['account:%s:%s:data' % (username, name.decode('utf-8'))
-                                   for name in sorted(r_session.smembers(accounts_key))]):
+    for user_id in sorted(r_session.smembers('accounts:%s' % username)):
 
-        account_info = json.loads(b_acct.decode("utf-8"))
-        mid = str(account_info.get('privilege').get('mid'))
+        account_data_key = 'account:%s:%s:data' % (username, user_id.decode('utf-8'))
+        b_data = r_session.get(account_data_key)
+        if b_data is None:
+            continue
+        data = json.loads(b_data.decode('utf-8'))
+
+        mid = str(data.get('privilege').get('mid'))
 
         total_speed = 0
         device_speed = []
+        for device in data.get('device_info'):
+            if device.get('status') != 'online': continue
+            uploadspeed = int(int(device.get('dcdn_upload_speed')) / 1024)
+            total_speed += uploadspeed
 
-        for device_info in account_info.get('device_info'):
-            if device_info.get('status') != 'online':
-                continue
-            uploadspeed = int(int(device_info.get('dcdn_upload_speed')) / 1024)            
-            #downloadspeed = int(int(device_info.get('dcdn_deploy_speed')) / 1024)
+            device_speed.append(dict(name=device.get('device_name'), value=uploadspeed))
+            # downloadspeed = int(int(device_info.get('dcdn_deploy_speed')) / 1024)
             # total_speed += downloadspeed
-            total_speed += uploadspeed            
-            device_speed.append(dict(name=device_info.get('device_name'), value=uploadspeed))            
+
             # device_speed.append(dict(name=device_info.get('device_name'), value=total_speed))
 
         # 显示在速度分析器圆形图表上的设备ID
         drilldown_data.append(dict(name='矿主ID:' + mid, value=total_speed, drilldown_data=device_speed))
-        #drilldown_data.append(dict(name='设备名:' + device_info.get('device_name'), value=total_speed, drilldown_data=device_speed))
+        # drilldown_data.append(dict(name='设备名:' + device_info.get('device_name'), value=total_speed, drilldown_data=device_speed))
 
     return Response(json.dumps(dict(data=drilldown_data)), mimetype='application/json')
 
@@ -132,23 +133,24 @@ def dashboard_speed_detail():
     user = session.get('user_info')
     username = user.get('username')
 
-    accounts_key = 'accounts:%s' % username
-
     device_speed = []
-    for b_acct in r_session.mget(*['account:%s:%s:data' % (username, name.decode('utf-8'))
-                                   for name in sorted(r_session.smembers(accounts_key))]):
+    for user_id in sorted(r_session.smembers('accounts:%s' % username)):
 
-        account_info = json.loads(b_acct.decode("utf-8"))
+        account_data_key = 'account:%s:%s:data' % (username, user_id.decode('utf-8'))
+        b_data = r_session.get(account_data_key)
+        if b_data is None:
+            continue
+        data = json.loads(b_data.decode('utf-8'))
 
-        for device_info in account_info.get('device_info'):
-            if device_info.get('status') != 'online':
-                continue
-            upload_speed = int(int(device_info.get('dcdn_upload_speed')) / 1024)
-            deploy_speed = int(device_info.get('dcdn_download_speed') / 1024)
+        for device in data.get('device_info'):
+            if device.get('status') != 'online': continue
+            upload_speed = int(int(device.get('dcdn_upload_speed')) / 1024)
+            deploy_speed = int(int(device.get('dcdn_download_speed')) / 1024)
 
-            device_speed.append(dict(name=device_info.get('device_name'), upload_speed=upload_speed, deploy_speed=deploy_speed))
+            device_speed.append(dict(name=device.get('device_name'), upload_speed=upload_speed, deploy_speed=deploy_speed))
 
     device_speed = sorted(device_speed, key=lambda k: k.get('name'))
+
     categories = []
     upload_series = dict(name='上传速度', data=[], pointPadding=0.3, pointPlacement=-0.2)
     deploy_series = dict(name='下载速度', data=[], pointPadding=0.4, pointPlacement=-0.2)
@@ -166,16 +168,20 @@ def dashboard_today_income_share():
     user = session.get('user_info')
     username = user.get('username')
 
-    accounts_key = 'accounts:%s' % username
-
     pie_data = []
-    for b_acct in r_session.mget(*['account:%s:%s:data' % (username, name.decode('utf-8'))
-                                   for name in sorted(r_session.smembers(accounts_key))]):
-        account_info = json.loads(b_acct.decode("utf-8"))
-        mid = str(account_info.get('privilege').get('mid'))
+    for user_id in sorted(r_session.smembers('accounts:%s' % username)):
+
+        account_data_key = 'account:%s:%s:data' % (username, user_id.decode('utf-8'))
+        b_data = r_session.get(account_data_key)
+        if b_data is None:
+            continue
+        data = json.loads(b_data.decode('utf-8'))
+
+        mid = str(data.get('privilege').get('mid'))
 
         total_value = 0
-        total_value += account_info.get('mine_info').get('dev_m').get('pdc')
+        this_pdc = data.get('mine_info').get('dev_m').get('pdc')
+        total_value += this_pdc
 
         pie_data.append(dict(name='矿主ID:' + mid, y=total_value))
 
@@ -192,7 +198,7 @@ def dashboard_DoD_income():
     if not user_info.get('auto_column'):
         dod_income = DoD_income_yuanjiangong()
     else:
-        dod_income = DoD_income_xunlei()
+        dod_income = DoD_income_xunlei(True)
 
     return dod_income
 
@@ -266,45 +272,48 @@ def DoD_income_yuanjiangong():
                                     )), mimetype='application/json')
 
 # 迅雷统计
-def DoD_income_xunlei():
+def DoD_income_xunlei(open_speeds):
     user = session.get('user_info')
     username = user.get('username')
 
-    key = 'user_data:%s:%s' % (username, 'income.history')
-
-    b_income_history = r_session.get(key)
-    if b_income_history is None:
-        return Response(json.dumps(dict(data=[])), mimetype='application/json')
-
-    income_history = json.loads(b_income_history.decode('utf-8'))
-
-    today_series = dict(name='今日', data=[], pointPadding=0.2, pointPlacement=0, color='#676A6C')
-    yesterday_series = dict(name='昨日', data=[], pointPadding=-0.1, pointPlacement=0, color='#1AB394')
-
     now = datetime.now()
+
+    today_series = dict(name='今日', data=[], pointPadding=0.2, pointPlacement=0, color='#676A6C', yAxis=0)
+    yesterday_series = dict(name='昨日', data=[], pointPadding=-0.1, pointPlacement=0, color='#1AB394', yAxis=0)
+    today_speed_series = dict(name='今日', data=[], pointPadding=0.2, pointPlacement=0, color='#F15C80', type='spline', tooltip=dict(valueSuffix=' kbps'), yAxis=1)
+    yesterday_speed_series = dict(name='昨日', data=[], pointPadding=-0.1, pointPlacement=0, color='#00B2EE',type='spline', tooltip=dict(valueSuffix=' kbps'), yAxis=1)
+
     key = 'user_data:%s:%s' % (username, now.strftime('%Y-%m-%d'))
+
     b_today_data_new = r_session.get(key)
-    today_data = json.loads(b_today_data_new.decode('utf-8'))
-    
-    today_series['data'] = []
-    for i in range(24-now.hour, 25):
-        temp = 0 
-        for hourly_produce in today_data.get('produce_stat'):
-            temp +=  hourly_produce.get('hourly_list')[i]
-        today_series['data'].append(temp)
+    if b_today_data_new is None:
+        today_series['data'] = [0] * 24
+        today_speed_series['data'] = [0] * 24
+    else:
+        today_data = json.loads(b_today_data_new.decode('utf-8'))
+        for i in range(24-now.hour, 25):
+            temp = 0
+            for hourly_produce in today_data.get('produce_stat'):
+                temp +=  hourly_produce.get('hourly_list')[i]
+            today_series['data'].append(temp)
+        today_speed_data = today_data.get('speed_stat')
+        for i in range(0, 24):
+            if i + now.hour < 24:
+                continue
+            if today_speed_data is None:
+                today_speed_series['data'] = []
+            else:
+                today_speed_series['data'].append(sum(row.get('dev_speed')[i] for row in today_speed_data))
+        today_speed_series['data'].append(today_data.get('last_speed')*8)
 
     key = 'user_data:%s:%s' % (username, (now + timedelta(days=-1)).strftime('%Y-%m-%d'))
+
     b_yesterday_data_new = r_session.get(key)
-
-    today_speed_series = dict(name='今日', data=[], type = 'spline', pointPadding=0.2, pointPlacement=0, color='#676A6C', tooltip=dict(valueSuffix=' kbps'))
-    yesterday_speed_series = dict(name='昨日', data=[], type = 'spline', pointPadding=-0.1, pointPlacement=0, color='#1AB394', tooltip=dict(valueSuffix=' kbps'))
-    today_speed_data = today_data.get('speed_stat')
-
     if b_yesterday_data_new is None:
-        yesterday_series['data'] = []
+        yesterday_series['data'] = [0] * 24
+        yesterday_speed_series['data'] = [0] * 24
     else:
         yesterday_data = json.loads(b_yesterday_data_new.decode('utf-8'))
-        yesterday_series['data'] = []
         for i in range(1, 25):
             if yesterday_data.get('produce_stat')[0].get('hourly_list') is None:
                 break
@@ -312,22 +321,16 @@ def DoD_income_xunlei():
             for hourly_produce in yesterday_data.get('produce_stat'):
                 temp += hourly_produce.get('hourly_list')[i]
             yesterday_series['data'].append(temp)
-            yesterday_speed_data = yesterday_data.get('speed_stat')
+        yesterday_speed_data = yesterday_data.get('speed_stat')
         for i in range(0, 24):
-            if yesterday_speed_data is not None:
-                yesterday_speed_series['data'].append(sum(row.get('dev_speed')[i] for row in yesterday_speed_data))
-            else:
+            if yesterday_speed_data is None:
                 yesterday_speed_series['data'] = []
+            else:
+                yesterday_speed_series['data'].append(sum(row.get('dev_speed')[i] for row in yesterday_speed_data))
 
-    for i in range(0, 24):
-        if i + now.hour < 24:
-            continue
-        if today_speed_data is not None:
-            today_speed_series['data'].append(sum(row.get('dev_speed')[i] for row in today_speed_data))
-
-    today_speed_series['data'].append(today_data.get('last_speed')*8)
     now_income_value = sum(today_series['data'][0:now.hour])
-    dod_income_value = sum(yesterday_series['data'][:now.hour])
+    dod_income_value = sum(yesterday_series['data'][0:now.hour])
+
     yesterday_last_value = sum(yesterday_series['data'][:])
 
     expected_income = '-'
@@ -336,7 +339,9 @@ def DoD_income_xunlei():
 
     if len(yesterday_series['data']) != 0:
         dod_income_value += int((yesterday_series['data'][now.hour]) / 60 * now.minute)
-    return Response(json.dumps(dict(series=[yesterday_series, today_series, yesterday_speed_series, today_speed_series],
+    set_series = [yesterday_series, today_series]
+    if open_speeds: set_series += [yesterday_speed_series, today_speed_series]
+    return Response(json.dumps(dict(series=set_series,
                                     data=dict(last_day_income=yesterday_last_value, dod_income_value=dod_income_value,
                                               expected_income=expected_income)
                                     )), mimetype='application/json')
@@ -387,9 +392,7 @@ def add_function():
         import hashlib
         import base64
         key = '%s%s%s' % (sn, mac, 'i8e%Fvj24nz024@d!c')
-        m = hashlib.md5()
-        m.update(key.encode('utf-8'))
-        md5 = m.digest()
+        md5 = hashlib.md5(key.encode('utf-8')).digest()
         passwd = base64.b64encode(md5).decode('utf-8')
         passwd = passwd[0:8]
         passwd = passwd.replace('+', '-')
@@ -440,8 +443,7 @@ def header_info():
         return dict()
     user = session.get('user_info')
 
-    str_today = datetime.now().strftime('%Y-%m-%d')
-    key = 'user_data:%s:%s' % (user.get('username'), str_today)
+    key = 'user_data:%s:%s' % (user.get('username'), datetime.now().strftime('%Y-%m-%d'))
 
     data = dict(balance=0)
 

@@ -3,8 +3,10 @@ import requests
 import random
 import json
 from util import md5, sha1
-from base64 import b64encode
 from urllib.parse import unquote, urlencode
+
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 rsa_mod = 0xAC69F5CCC8BDE47CD3D371603748378C9CFAD2938A6B021E0E191013975AD683F5CBF9ADE8BD7D46B4D2EC2D78AF146F1DD2D50DC51446BB8880B8CE88D476694DFC60594393BEEFAA16F5DBCEBE22F89D640F5336E42F587DC4AFEDEFEAC36CF007009CCCE5C1ACB4FF06FBA69802A8085C2C54BADD0597FC83E6870F1E36FD
 rsa_pubexp = 0x010001
@@ -57,38 +59,37 @@ def old_login(username, md5_password):
     device_id = md5("%s23333" % md5_password) # just generate a 32bit string
 
     appName = 'com.xunlei.redcrystalandroid'
-    key = 'C2049664-1E4A-4E1C-A475-977F0E207C9C'
-    md5_key = md5(key)
+    md5_key = md5('C2049664-1E4A-4E1C-A475-977F0E207C9C')
 
     device_sign = 'div100.%s%s' % (device_id, md5(sha1("%s%s%s%s" % (device_id, appName, 61, md5_key))))
 
     payload = json.dumps({
-            "protocolVersion": PROTOCOL_VERSION,
-            "sequenceNo": 1000001,
-            "platformVersion": 1,
-            "sdkVersion": 177588,
-            "peerID": peer_id,
-            "businessType": 61,
-            "clientVersion": APP_VERSION,
-            "devicesign": device_sign,
-            "isCompressed": 0,
-            "cmdID": 1,
-            "userName": username,
-            "passWord": hash_password,
-            "loginType": 0,
-            "sessionID": "",
-            "verifyKey": "",
-            "verifyCode": "",
-            "appName": "ANDROID-com.xunlei.redcrystalandroid",
-            "rsaKey": {
-                "e": "%06X" % rsa_pubexp,
-                "n": long2hex(rsa_mod)
-            },
-            "extensionList": ""
+        "protocolVersion": PROTOCOL_VERSION,
+        "sequenceNo": 1000001,
+        "platformVersion": 1,
+        "peerID": peer_id,
+        "businessType": 61,
+        "clientVersion": APP_VERSION,
+        "isCompressed": 0,
+        "cmdID": 1,
+        "userName": username,
+        "passWord": hash_password,
+        "loginType": 0,
+        "sessionID": "",
+        "verifyKey": "",
+        "verifyCode": "",
+        "appName": "ANDROID-%s" % appName,
+        "devicesign": device_sign,
+        "sdkVersion": 177588,
+        "rsaKey": {
+            "e": "%06X" % rsa_pubexp,
+            "n": long2hex(rsa_mod)
+        },
+        "extensionList": ""
     })
 
     headers = {'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 5_1 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Mobile/9B176 MicroMessenger/4.3.2"}
-    r = requests.post("https://login.mobile.reg2t.sandai.net/", data=payload, headers=headers, verify=False)
+    r = requests.post("https://login.mobile.reg2t.sandai.net:443/", data=payload, headers=headers, verify=False)
 
     login_status = json.loads(r.text)
 
@@ -117,7 +118,7 @@ def login(username, md5_password, encrypt_pwd_url=None):
     captcha = check_result.split(':')[1].upper()
 
     params = dict(password=md5_password, captcha=captcha, check_n=check_n, check_e=check_e)
-    urlencode(params)
+
     r = requests.get(encrypt_pwd_url + '?' + urlencode(params))
     e_pwd = r.text
     if r.text == 'false':

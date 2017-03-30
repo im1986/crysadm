@@ -4,9 +4,6 @@ import json
 import time
 from crysadm_helper import r_session
 from requests.adapters import HTTPAdapter
-from urllib.parse import urlparse, parse_qs
-
-requests.packages.urllib3.disable_warnings()
 
 # 迅雷API接口
 appversion = '3.1.7'
@@ -22,11 +19,11 @@ def api_post(cookies, url, data, verify=False, headers=agent_header, timeout=60)
     address = server_address + url
     try:
         proxies = api_proxies()
-        r = requests.post(url=address, data=data, proxies=proxies, verify=verify, headers=headers, cookies=cookies, timeout=timeout)        
+        r = requests.post(url=address, data=data, proxies=proxies, verify=verify, headers=headers, cookies=cookies, timeout=timeout)
     except requests.exceptions.RequestException as e:
         return __handle_exception(e=e)
 
-    if r.status_code != 200: 
+    if r.status_code != 200:
         return __handle_exception(rd=r.reason)
 
     return json.loads(r.text)
@@ -104,7 +101,7 @@ def get_device_stat(s_type, cookies):
 def collect(cookies):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
     body = dict(hand='0', v='2', ver='1')
-    return api_post(url='/index.php?r=mine/collect', data=body, cookies=cookies)
+    return api_post(url='/?r=mine/collect', data=body, cookies=cookies)
 
 # 获取免费宝箱信息
 def api_giftbox(cookies):
@@ -112,19 +109,7 @@ def api_giftbox(cookies):
     body = dict(tp='0', p='0', ps='60', t='', v='2', cmid='-1')
     return api_post(url='/?r=usr/giftbox', data=body, cookies=cookies)
 
-# 提交打开宝箱请求
-def api_openStone(cookies, giftbox_id, direction):
-    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='1', id=str(giftbox_id), side=direction)
-    return api_post(url='/?r=usr/openStone', data=body, cookies=cookies)
-
-# 提交放弃宝箱请求
-def api_giveUpGift(cookies, giftbox_id):
-    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='2', id=str(giftbox_id), tag='0')
-    return api_post(url='/?r=usr/giveUpGift', data=body, cookies=cookies)
-
-# 获取免费宝箱次数
+# 获取摇晃宝箱次数
 def api_shakeLeft(cookies):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
     body = dict()
@@ -143,16 +128,49 @@ def api_stoneInfo(cookies, giftbox_id, tag):
     return api_post(url='/?r=usr/stoneInfo', data=body, cookies=cookies)
 
 # 提交打开宝箱请求
-def api_openStone2(cookies, giftbox_id, direction, tag):
+def api_openStone(cookies, sid, side, tag=None):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='1', id=str(giftbox_id), side=direction, tag=tag)
+    body = dict(v='1', id=str(sid), side=side)
+    if tag is not None: body['tag'] = tag
     return api_post(url='/?r=usr/openStone', data=body, cookies=cookies)
 
 # 提交放弃宝箱请求
-def api_giveUpGift2(cookies, giftbox_id, tag):
+def api_giveUpGift(cookies, sid, tag='0'):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='2', id=str(giftbox_id), tag=tag)
+    body = dict(v='2', id=str(sid), tag=tag)
+    if tag != '0': body['tag'] = tag
     return api_post(url='/?r=usr/giveUpGift', data=body, cookies=cookies)
+
+# 获取秘银进攻信息
+def api_sys_getEntry(cookies):
+    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
+    body = dict(v='6')
+    return api_post(url='/?r=sys/getEntry', data=body, cookies=cookies)
+
+# 获取秘银复仇信息
+def api_steal_stolenSilverHistory(cookies):
+    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
+    body = dict(v='2', p='0', ps='20')
+    return api_post(url='/?r=steal/stolenSilverHistory', data=body, cookies=cookies)
+
+# 提交秘银进攻请求
+def api_steal_search(cookies, sid=None):
+    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
+    body = dict(v='2')
+    if sid is not None: body['sid'] = str(sid)
+    return api_post(url='/?r=steal/search', data=body, cookies=cookies)
+
+# 提交收集秘银请求
+def api_steal_collect(cookies, sid):
+    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
+    body = dict(sid=str(sid), cmid='-2', v='2')
+    return api_post(url='/?r=steal/collect', data=body, cookies=cookies)
+
+# 提交进攻结果请求
+def api_steal_summary(cookies, sid):
+    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
+    body = dict(sid=str(sid), v='2')
+    return api_post(url='/?r=steal/summary', data=body, cookies=cookies)
 
 # 获取幸运转盘信息
 def api_getconfig(cookies):
@@ -164,29 +182,24 @@ def api_getaward(cookies):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
     return api_post(url='/?r=turntable/getaward', data=None, cookies=cookies)
 
-# 获取秘银进攻信息
-def api_sys_getEntry(cookies):
+# 获取秘银进攻信息，迅雷游乐场
+def api_pcSteal_info(cookies):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='6')
-    return api_post(url='/?r=sys/getEntry', data=body, cookies=cookies)
+    body = dict(appversion=appversion)
+    return api_post(url='/?r=pcSteal/info', data=body, cookies=cookies)
 
-# 提交秘银进攻请求
-def api_steal_search(cookies):
+# 获取秘银复仇信息，迅雷游乐场
+def api_pcSteal_stolenHistory(cookies):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(v='2')
-    return api_post(url='/?r=steal/search', data=body, cookies=cookies)
+    body = dict(appversion=appversion)
+    return api_post(url='/?r=pcSteal/stolenHistory', data=body, cookies=cookies)
 
-# 提交收集秘银请求
-def api_steal_collect(cookies, searcht_id):
+# 提交秘银进攻请求，迅雷游乐场
+def api_pcSteal_steal(cookies, sid=None):
     cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(sid=str(searcht_id), cmid='-2', v='2')
-    return api_post(url='/?r=steal/collect', data=body, cookies=cookies)
-
-# 提交进攻结果请求
-def api_steal_summary(cookies, searcht_id):
-    cookies['origin'] = '4' if len(cookies.get('sessionid')) == 128 else '1'
-    body = dict(sid=str(searcht_id), v='2')
-    return api_post(url='/?r=steal/summary', data=body, cookies=cookies)
+    body = dict(appversion=appversion)
+    if sid is not None: body['sid'] = str(sid)
+    return api_post(url='/?r=pcSteal/steal', data=body, cookies=cookies)
 
 # 获取星域存储相关信息
 def ubus_cd(session_id, account_id, action, out_params, url_param=None):
@@ -208,15 +221,6 @@ def ubus_cd(session_id, account_id, action, out_params, url_param=None):
 
     except requests.exceptions.RequestException as e:
         return __handle_exception(e=e)
-
-# 发送设置链接
-def parse_setting_url(url):
-    query_s = parse_qs(urlparse(url).query, keep_blank_values=True)
-
-    device_id = query_s['device_id'][0]
-    session_id = query_s['session_id'][0]
-    account_id = query_s['user_id'][0]
-    return device_id, session_id, account_id
 
 # 检测是否API错误
 def is_api_error(r):

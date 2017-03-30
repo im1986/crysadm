@@ -160,7 +160,7 @@
             <div class="ibox float-e-margins">
                 <div class="ibox-title">
                     {% if not user_info.auto_column %}
-                        <h5>同比产量 (默认统计)</h5>
+                        <h5>同比产量</h5>
                     {% else %}
                         <h5>同比产量 (迅雷统计)</h5>
                     {% endif %}
@@ -504,12 +504,21 @@
                     xAxis: {
                         categories: ["01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "24:00"]
                     },
-                    yAxis: {
+                    yAxis: [{
                         min: 0,
                         title: {
                             text: '产量'
                         }
-                    },
+                    }, {
+                        min: 0,
+                        title: {
+                            text: '速度'
+                        },
+                        labels: {
+                            format: '{value}'
+                        },
+                        opposite: true
+                    }],
                     credits: {
                         enabled: false
                     },
@@ -526,7 +535,7 @@
                         }
                     },
                     legend: {
-                        layout: 'vertical',
+                        layout: 'horizontal',
                         align: 'left',
                         verticalAlign: 'top',
                         x: 55,
