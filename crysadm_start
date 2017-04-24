@@ -9,10 +9,10 @@
 ### END INIT INFO
 case $1 in
     start)
-        sh /home/pi/crysadm/run.sh
+        sudo sh /home/pi/crysadm/run.sh
         ;;
     stop)
-        sh /home/pi/crysadm/down.sh
+        sudo sh /home/pi/crysadm/down.sh
         ;;
 *)
 echo "Usage: $0 (start|stop)"
