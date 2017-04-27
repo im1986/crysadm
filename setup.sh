@@ -15,7 +15,7 @@ BASE_DIR="$( cd "$( dirname "$0"  )" && pwd  )"
 sudo chmod +x ${BASE_DIR}/get-pip.py
 sudo python3.4 ${BASE_DIR}/get-pip.py
 
-sudo pip3.4 install redis && sudo pip3.4 install requests && sudo pip3.4 install flask && sudo pip3.4 install flask-mail
+sudo pip3.4 install redis && sudo pip3.4 install requests && sudo pip3.4 install flask && sudo pip3.4 install flask-mail && sudo pip install -U requests
 
 #安装redis-server
 sudo apt-get install -y redis-server 
